@@ -1,6 +1,6 @@
 // Pure geographic-world validation and interpolation. Units are local meters.
 export function assertWorld(data) {
-  if (!data || data.schema !== 1 || !data.meta || !["synthetic", "measured"].includes(data.meta.kind)) throw Error("Invalid world provenance");
+  if (!data || data.schema !== 1 || !data.meta || !["synthetic", "mapped", "measured"].includes(data.meta.kind)) throw Error("Invalid world provenance");
   if (!Number.isFinite(data.size) || data.size < 20 || data.size > 5000) throw Error("Invalid world size");
   const t = data.terrain;
   if (!t || !Number.isInteger(t.n) || t.n < 2 || t.n > 1025 || !Array.isArray(t.heights) || t.heights.length !== t.n * t.n || t.heights.some(v => !Number.isFinite(v))) throw Error("Invalid elevation grid");

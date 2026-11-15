@@ -1,0 +1,36 @@
+name: Acquire Russell Street geographic dataset
+on:
+  push:
+    branches: [mission-001-geographic-foundation]
+    paths:
+      - 'tools/acquire_site.py'
+      - '.github/workflows/acquire-russell.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  acquire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mission-001-geographic-foundation
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Acquire verified USGS/OSM sources
+        run: python tools/acquire_site.py --out public/data/russell-266.json
+      - name: Validate generated JSON
+        run: |
+          python -m json.tool public/data/russell-266.json > /dev/null
+          node --input-type=module -e "import fs from 'node:fs'; import {assertWorld} from './src/geo.js'; const w=assertWorld(JSON.parse(fs.readFileSync('public/data/russell-266.json','utf8'))); if(w.roads.length<2 || w.buildings.length<3) throw Error('Not enough geographic geometry'); console.log(w.meta.kind,w.roads.length,w.buildings.length);"
+      - name: Commit acquired site to mission branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/data/russell-266.json
+          if git diff --cached --quiet; then echo "No dataset change"; exit 0; fi
+          git commit -m "Data: add sourced 266 Russell St geographic site"
+          git push origin HEAD:mission-001-geographic-foundation

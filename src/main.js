@@ -19,7 +19,7 @@ async function load(){
  if(!data)data=assertWorld(demoWorld());
  source.textContent=data.meta.kind==="measured"?"GEOGRAPHIC SOURCE: "+data.meta.label:"SYNTHETIC DEMO — NOT LIDAR / OSM";
  source.className="notice "+(data.meta.kind==="measured"?"measured":"synthetic");
- details.textContent=data.size+"m × "+data.size+"m · "+data.buildings.length+" footprints · "+data.roads.length+" roads · style seed "+seed+" · "+(data.meta.attribution||"");
+ details.textContent=data.size+"m × "+data.size+"m · "+data.buildings.length+" footprints · "+data.roads.length+" roads · style seed "+seed+" · "+(current?.detailStats ? `${current.detailStats.windows} windows · ${current.detailStats.signs} signs · ` : "")+(data.meta.attribution||"");
  rebuild();
 }
 function rebuild(){
@@ -27,7 +27,7 @@ function rebuild(){
  current=makeWorld(data,seed);scene.add(current.group);
  camera.position.set(0,heightAt(data,0,0)+1.72,0);
  if(!canOccupy(0,0,current.colliderPolys,data.size)){let placed=false;for(let r=10;r<data.size/2&&!placed;r+=10)for(let a=0;a<32;a++){const x=r*Math.cos(a*Math.PI/16),z=r*Math.sin(a*Math.PI/16);if(canOccupy(x,z,current.colliderPolys,data.size)){camera.position.set(x,heightAt(data,x,z)+1.72,z);placed=true;break;}}}
- details.textContent=data.size+"m × "+data.size+"m · "+data.buildings.length+" footprints · "+data.roads.length+" roads · style seed "+seed+" · "+(data.meta.attribution||"");
+ details.textContent=data.size+"m × "+data.size+"m · "+data.buildings.length+" footprints · "+data.roads.length+" roads · style seed "+seed+" · "+(current?.detailStats ? `${current.detailStats.windows} windows · ${current.detailStats.signs} signs · ` : "")+(data.meta.attribution||"");
 }
 document.querySelector("#enter").addEventListener("click",()=>canvas.requestPointerLock());
 canvas.addEventListener("click",()=>{if(!locked)canvas.requestPointerLock();});

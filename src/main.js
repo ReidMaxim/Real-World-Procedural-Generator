@@ -12,14 +12,14 @@ try { renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:"h
 catch(e){error.textContent="WebGL2 unavailable: "+e.message;throw e;}
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x060c1b);scene.fog=new THREE.FogExp2(0x091827,0.009);
 async function load(){
- let url=new URLSearchParams(location.search).get("world");
+ let url=new URLSearchParams(location.search).get("world") || "data/russell-266.json";
  if(url && !/^[-\w/]+\.json$/.test(url)){error.textContent="World path rejected. Use a local relative JSON path.";url=null;}
  if(url){try{const resp=await fetch(import.meta.env.BASE_URL+url.replace(/^\//,""));if(!resp.ok)throw Error("HTTP "+resp.status);data=assertWorld(await resp.json());}
  catch(e){error.textContent="World dataset failed: "+e.message+"; displaying clearly labeled synthetic fixture.";}}
  if(!data)data=assertWorld(demoWorld());
- source.textContent=data.meta.kind==="measured"?"GEOGRAPHIC SOURCE: "+data.meta.label:"SYNTHETIC DEMO — NOT LIDAR / OSM";
- source.className="notice "+(data.meta.kind==="measured"?"measured":"synthetic");
- details.textContent=data.size+"m × "+data.size+"m · "+data.buildings.length+" footprints · "+data.roads.length+" roads · style seed "+seed+" · "+(current?.detailStats ? `${current.detailStats.windows} windows · ${current.detailStats.signs} signs · ` : "")+(data.meta.attribution||"");
+ source.textContent=data.meta.kind==="measured"?"REAL MAP + USGS ELEVATION: "+data.meta.label:data.meta.kind==="mapped"?"REAL OSM MAP / FLAT TERRAIN PLACEHOLDER: "+data.meta.label:"SYNTHETIC DEMO — NOT LIDAR / OSM";
+ source.className="notice "+(data.meta.kind==="synthetic"?"synthetic":"measured");
+ details.textContent=data.size+"m × "+data.size+"m · "+data.buildings.length+" footprints · "+data.roads.length+" roads · style seed "+seed+" · "+(current?.detailStats ? `${current.detailStats.windows} windows · ${current.detailStats.signs} signs · ` : "")+(data.meta.elevation_note||data.meta.attribution||"");
  rebuild();
 }
 function rebuild(){
@@ -27,7 +27,7 @@ function rebuild(){
  current=makeWorld(data,seed);scene.add(current.group);
  camera.position.set(0,heightAt(data,0,0)+1.72,0);
  if(!canOccupy(0,0,current.colliderPolys,data.size)){let placed=false;for(let r=10;r<data.size/2&&!placed;r+=10)for(let a=0;a<32;a++){const x=r*Math.cos(a*Math.PI/16),z=r*Math.sin(a*Math.PI/16);if(canOccupy(x,z,current.colliderPolys,data.size)){camera.position.set(x,heightAt(data,x,z)+1.72,z);placed=true;break;}}}
- details.textContent=data.size+"m × "+data.size+"m · "+data.buildings.length+" footprints · "+data.roads.length+" roads · style seed "+seed+" · "+(current?.detailStats ? `${current.detailStats.windows} windows · ${current.detailStats.signs} signs · ` : "")+(data.meta.attribution||"");
+ details.textContent=data.size+"m × "+data.size+"m · "+data.buildings.length+" footprints · "+data.roads.length+" roads · style seed "+seed+" · "+(current?.detailStats ? `${current.detailStats.windows} windows · ${current.detailStats.signs} signs · ` : "")+(data.meta.elevation_note||data.meta.attribution||"");
 }
 document.querySelector("#enter").addEventListener("click",()=>canvas.requestPointerLock());
 canvas.addEventListener("click",()=>{if(!locked)canvas.requestPointerLock();});

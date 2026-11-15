@@ -95,14 +95,21 @@ export function decorateWorld(group, data, seed, buildingRecords) {
     if(len<5)continue;
     const index=Math.floor(random()*labels.length),color=["#64ecff","#ff65c2","#ffbd64","#bbf68a"][i%4];
     const texture=signTexture(labels[index],color);
-    const material=new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide,transparent:false});
+    const material=new THREE.MeshBasicMaterial({map:texture,side:THREE.FrontSide,transparent:false});
     signMaterials.push(material);
     const width=Math.min(9,Math.max(4,len*.65));
     const geom=new THREE.PlaneGeometry(width,1.9);signGeos.push(geom);
-    const sign=new THREE.Mesh(geom,material);
-    sign.position.set((a[0]+b[0])/2+dz/len*.27,record.base+Math.min(record.height-2,5), (a[1]+b[1])/2-dx/len*.27);
-    sign.rotation.y=-Math.atan2(dz,dx);
-    assets.add(sign);
+    // A double-sided material mirrors text when viewed from the rear.
+    // Instead construct two FRONT-facing copies, each reading left-to-right.
+    const angle=-Math.atan2(dz,dx),cx=(a[0]+b[0])/2,cz=(a[1]+b[1])/2;
+    const nx=Math.sin(angle),nz=Math.cos(angle);
+    const y=record.base+Math.min(record.height-2,5);
+    for(const side of [1,-1]){
+      const sign=new THREE.Mesh(geom,material);
+      sign.position.set(cx+nx*.38*side,y,cz+nz*.38*side);
+      sign.rotation.y=angle+(side===1?0:Math.PI);
+      assets.add(sign);
+    }
   }
 
   // Roadside poles and local lights use sparse placement to avoid GPU light overload.
@@ -126,13 +133,42 @@ export function decorateWorld(group, data, seed, buildingRecords) {
   createInstances(poleGlow,new THREE.MeshBasicMaterial({color:0x55dbf7}),windowGeo);
 
   // Neon guard rails, debris and service cabinets are geometric, seeded and low-poly.
-  const cabinetMatrices=[],crateMatrices=[];
-  for(const p of polePositions.slice(0,36)){
-    if(random()<.56)put(cabinetMatrices,p.x+2,p.y+.85,p.z+1,.8,1.7,.65);
-    if(random()<.45)put(crateMatrices,p.x-1.7,p.y+.34,p.z-2,.7,.7,.7);
+  const cabinetMatrices=[],crateMatrices=[],barrelMatrices=[],puddleMatrices=[],awningMatrices=[],stripeMatrices=[];
+  for(const p of polePositions.slice(0,60)){
+    if(random()<.65)put(cabinetMatrices,p.x+2,p.y+.85,p.z+1,.8,1.7,.65);
+    if(random()<.7)put(crateMatrices,p.x-1.7,p.y+.34,p.z-2,.7,.7,.7);
+    if(random()<.8)put(barrelMatrices,p.x-2.5,p.y+.55,p.z+1.8,.65,1.1,.65);
+    // Thin dark irregular patches are decorative puddles rather than reflections.
+    if(random()<.88)put(puddleMatrices,p.x+random()*5-2,p.y+.045,p.z+random()*5-2,2+random()*2,.025,1+random()*2,random()*Math.PI);
+  }
+  // Actual building geometry and footprints remain unchanged: canopies are visual only.
+  for(const record of buildingRecords.slice(0,70)){
+    const fp=record.building.footprint;
+    if(fp.length<2)continue;
+    const a=fp[0],b=fp[1],dx=b[0]-a[0],dz=b[1]-a[1],len=Math.hypot(dx,dz);
+    if(len<6)continue;
+    const angle=-Math.atan2(dz,dx);
+    const nx=Math.sin(angle),nz=Math.cos(angle);
+    const midx=(a[0]+b[0])/2,midz=(a[1]+b[1])/2;
+    const width=Math.min(8,len*.55);
+    put(awningMatrices,midx+nx*.95,record.base+3.25,midz+nz*.95,width,.22,2.2,angle);
+  }
+  // Lane markers add street-level scale, without requiring new texture assets.
+  for(const line of data.roads??[])for(let i=0;i<line.length-1;i++){
+    const a=line[i],b=line[i+1],dx=b[0]-a[0],dz=b[1]-a[1],len=Math.hypot(dx,dz);
+    if(len<3)continue;
+    const angle=-Math.atan2(dz,dx);
+    for(let dist=6;dist<len-1;dist+=10){
+      const t=dist/len,x=a[0]+dx*t,z=a[1]+dz*t;
+      put(stripeMatrices,x,heightAt(data,x,z)+.115,z,3,.022,.18,angle);
+    }
   }
   createInstances(cabinetMatrices,new THREE.MeshStandardMaterial({color:0x42535b,roughness:.75}),windowGeo);
   createInstances(crateMatrices,new THREE.MeshStandardMaterial({color:0x5e4a3a,roughness:.95}),windowGeo);
+  createInstances(barrelMatrices,new THREE.MeshStandardMaterial({color:0x43545c,metalness:.5,roughness:.65}),windowGeo);
+  createInstances(puddleMatrices,new THREE.MeshStandardMaterial({color:0x0b202d,metalness:.75,roughness:.19}),windowGeo);
+  createInstances(awningMatrices,new THREE.MeshStandardMaterial({color:0x146476,metalness:.55,roughness:.45}),windowGeo);
+  createInstances(stripeMatrices,new THREE.MeshBasicMaterial({color:0x7aa9bc,transparent:true,opacity:.68}),windowGeo);
 
-  return { assets,stats:{windows:windowInstances.reduce((sum,items)=>sum+items.length,0),signs:signMaterials.length,poles:polePositions.length} };
+  return { assets,stats:{windows:windowInstances.reduce((sum,items)=>sum+items.length,0),signs:signMaterials.length,poles:polePositions.length,streetProps:cabinetMatrices.length+crateMatrices.length+barrelMatrices.length} };
 }

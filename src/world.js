@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { decorateWorld } from "./details.js";
 import {heightAt,rng,stableHash,pointInPolygon} from "./geo.js";
 const CYAN=0x39e8ee, PINK=0xff44ba;
 export function makeWorld(data,seed=2049) {
@@ -27,7 +28,7 @@ export function makeWorld(data,seed=2049) {
    const stripePoints=[];for(let s=0;s<=steps;s++){let t=s/steps,x=ax+dx*t,z=az+dz*t;stripePoints.push(new THREE.Vector3(x,heightAt(data,x,z)+0.1,z));}
    const streak=new THREE.Line(new THREE.BufferGeometry().setFromPoints(stripePoints),new THREE.LineDashedMaterial({color:0x4ec9d9,dashSize:2,gapSize:4,transparent:true,opacity:0.45}));streak.computeLineDistances();group.add(streak);
  }
- const colliderPolys=[];
+ const colliderPolys=[], buildingRecords=[];
  const wallMaterials=[0x19252d,0x22323d,0x25313b,0x152734].map(color=>new THREE.MeshStandardMaterial({color,metalness:0.55,roughness:0.55}));
  const glowMaterials=[CYAN,PINK,0xffad44,0xb3ff4c].map(color=>new THREE.MeshBasicMaterial({color}));
  for(const b of data.buildings??[]){
@@ -40,11 +41,13 @@ export function makeWorld(data,seed=2049) {
    geom.translate(0,base,0);
    const m=new THREE.Mesh(geom,wallMaterials[Math.floor(random()*wallMaterials.length)]);group.add(m);
    colliderPolys.push(fp);
+   buildingRecords.push({building:b,base,height});
    // Thin procedural neon rooftop fins, seeded independently from geographic coordinates.
    const color=glowMaterials[Math.floor(random()*glowMaterials.length)];
    const [x,z]=fp[0];const fin=new THREE.Mesh(new THREE.BoxGeometry(0.45,Math.min(height,15),0.45),color);
    fin.position.set(x,base+height-Math.min(height,15)/2+0.4,z);group.add(fin);
  }
+ const detailing=decorateWorld(group,data,seed,buildingRecords);
  const stars=new THREE.BufferGeometry(), count=450, drops=new Float32Array(count*3);
  for(let i=0;i<count;i++){drops[i*3]=(random()-.5)*size;drops[i*3+1]=random()*34+1;drops[i*3+2]=(random()-.5)*size;}
  stars.setAttribute("position",new THREE.BufferAttribute(drops,3));
@@ -54,6 +57,6 @@ export function makeWorld(data,seed=2049) {
  }
  const sun=new THREE.HemisphereLight(0x48769e,0x090d19,1.35);group.add(sun);
  group.add(new THREE.DirectionalLight(0x5f779b,0.65));
- return {group,colliderPolys,update(time){const a=rain.geometry.attributes.position;for(let i=0;i<count;i++){let v=a.array[i*3+1]-0.35;if(v<0)v+=35;a.array[i*3+1]=v;}a.needsUpdate=true;},dispose(){group.traverse(o=>{o.geometry?.dispose();if(o.material){for(const m of Array.isArray(o.material)?o.material:[o.material])if(!wallMaterials.includes(m)&&!glowMaterials.includes(m)&&m!==roadMat&&m!==stripeMat)m.dispose();}});roadMat.dispose();stripeMat.dispose();wallMaterials.forEach(x=>x.dispose());glowMaterials.forEach(x=>x.dispose());}};
+ return {group,colliderPolys,detailStats:detailing.stats,update(time){const a=rain.geometry.attributes.position;for(let i=0;i<count;i++){let v=a.array[i*3+1]-0.35;if(v<0)v+=35;a.array[i*3+1]=v;}a.needsUpdate=true;},dispose(){group.traverse(o=>{o.geometry?.dispose();if(o.material){for(const m of Array.isArray(o.material)?o.material:[o.material])if(!wallMaterials.includes(m)&&!glowMaterials.includes(m)&&m!==roadMat&&m!==stripeMat){ m.map?.dispose();m.dispose(); }}});roadMat.dispose();stripeMat.dispose();wallMaterials.forEach(x=>x.dispose());glowMaterials.forEach(x=>x.dispose());}};
 }
 export function canOccupy(x,z,polys,size) {return Math.abs(x)<size/2-2&&Math.abs(z)<size/2-2&&!polys.some(p=>pointInPolygon(x,z,p));}
